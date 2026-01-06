@@ -80,8 +80,8 @@ fi
 # 5. PULL QUANTIZED LLAVA MODEL
 # ========================================
 echo ""
-echo "[5/7] Pulling quantized LLaVA model (llava:7b-q4_K_M)..."
-ollama pull llava:7b-q4_K_M
+echo "[5/7] Pulling quantized LLaVA model (llava:7b)..."
+ollama pull llava:7b
 
 if ollama list | grep -q "llava:7b"; then
     echo "✓ Quantized LLaVA model ready"
@@ -122,7 +122,7 @@ with open('config.json', 'r') as f:
     config = json.load(f)
 
 # Update Ollama model
-config['ollama_config']['ollama_model'] = 'llava:7b-q4_K_M'
+config['ollama_config']['ollama_model'] = 'llava:7b'
 
 # Add merged prompt file
 if 'prompt_files' not in config['ollama_config']:
@@ -146,7 +146,7 @@ echo "=========================================="
 echo ""
 echo "Configuration Summary:"
 echo "  - Ollama server: Running on GPU 1 (PID: $OLLAMA_PID)"
-echo "  - Model: llava:7b-q4_K_M (quantized)"
+echo "  - Model: llava:7b (quantized)"
 echo "  - GPU Layers: 35"
 echo "  - YOLO will use: GPU 0"
 echo ""
