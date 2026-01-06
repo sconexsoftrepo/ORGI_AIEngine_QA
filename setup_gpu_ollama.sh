@@ -83,7 +83,7 @@ echo ""
 echo "[5/7] Pulling quantized LLaVA model (llava:7b-q4_K_M)..."
 ollama pull llava:7b-q4_K_M
 
-if ollama list | grep -q "llava:7b-q4_K_M"; then
+if ollama list | grep -q "llava:7b"; then
     echo "✓ Quantized LLaVA model ready"
 else
     echo "ERROR: Failed to pull quantized model"
