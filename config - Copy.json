@@ -22,13 +22,12 @@
     "class_ids_path": "data/class_ids.json",
     "prompt_path": "data/prompts/",
     "prompt_files": {
-      "extended_visibility_all": "extended_visibility_all.txt",
       "extended_visibility_group1": "extended_group1.txt",
       "extended_visibility_group2": "extended_group2.txt"
     },
     "ollama_host": "http://127.0.0.1:11434",
     "ollama_enabled": true,
-    "ollama_model": "llava:7b-q4_K_M"
+    "ollama_model": "llava:7b"
   },
   "visicooler_config": {
     "caps_model_path": "data/capmodelnew.pt",
