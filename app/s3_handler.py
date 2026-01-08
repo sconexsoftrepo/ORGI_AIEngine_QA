@@ -37,7 +37,6 @@ class S3Handler:
             from app.db_handler import initialize_db_connection, close_db_connection
             conn, cur = initialize_db_connection(self.db_config)
 
-            # ✅ ONLY CHANGE: ORDER BY uploadtimestamp ASC
             cur.execute(
                 """
                 SELECT filesequenceid,
@@ -62,7 +61,6 @@ class S3Handler:
             image_paths = []
             failed_files = []
 
-            # ✅ ONLY CHANGE: unpack upload_time
             for filesequenceid, storename, filename, storeid, subcategory_id, upload_time in image_data:
                 try:
                     logger.debug(

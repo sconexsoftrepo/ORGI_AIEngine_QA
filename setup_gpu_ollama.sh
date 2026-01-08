@@ -1,18 +1,7 @@
-#!/bin/bash
-# RunPod GPU Optimization Script for Ollama + YOLO Pipeline
-# Save as: setup_gpu_ollama.sh
-# Make executable: chmod +x setup_gpu_ollama.sh
-# Run: ./setup_gpu_ollama.sh
+set -e
 
-set -e  # Exit on error
-
-echo "=========================================="
 echo "RunPod GPU Setup for Ollama Pipeline"
-echo "=========================================="
 
-# ========================================
-# 1. VERIFY GPU AVAILABILITY
-# ========================================
 echo ""
 echo "[1/7] Verifying GPU availability..."
 if ! command -v nvidia-smi &> /dev/null; then
@@ -23,30 +12,21 @@ fi
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 echo "✓ GPUs detected"
 
-# ========================================
-# 2. STOP EXISTING OLLAMA INSTANCES
-# ========================================
 echo ""
 echo "[2/7] Stopping existing Ollama instances..."
 pkill -9 ollama || true
 sleep 2
 echo "✓ Cleared existing Ollama processes"
 
-# ========================================
-# 3. CONFIGURE OLLAMA FOR GPU
-# ========================================
 echo ""
 echo "[3/7] Configuring Ollama GPU settings..."
 
-# Export GPU configuration
-export OLLAMA_NUM_GPU=1          # Use 1 GPU for Ollama
-export OLLAMA_GPU_LAYERS=35      # Offload 35 layers to GPU (adjust for your VRAM)
-export OLLAMA_NUM_THREADS=4      # Limit CPU threads
-export CUDA_VISIBLE_DEVICES=1    # Bind Ollama to GPU 1 (GPU 0 for YOLO)
+export OLLAMA_NUM_GPU=1
+export OLLAMA_GPU_LAYERS=35
+export OLLAMA_NUM_THREADS=4
+export CUDA_VISIBLE_DEVICES=1
 
-# Make persistent across sessions
 cat << 'EOF' >> ~/.bashrc
-# Ollama GPU Configuration
 export OLLAMA_NUM_GPU=1
 export OLLAMA_GPU_LAYERS=35
 export OLLAMA_NUM_THREADS=4
@@ -59,9 +39,6 @@ echo "  - OLLAMA_GPU_LAYERS: 35"
 echo "  - OLLAMA_NUM_THREADS: 4"
 echo "  - GPU Assignment: GPU 1 (Ollama), GPU 0 (YOLO)"
 
-# ========================================
-# 4. START OLLAMA SERVER ON GPU
-# ========================================
 echo ""
 echo "[4/7] Starting Ollama server on GPU 1..."
 CUDA_VISIBLE_DEVICES=1 nohup ollama serve > /tmp/ollama.log 2>&1 &
@@ -76,9 +53,6 @@ else
     exit 1
 fi
 
-# ========================================
-# 5. PULL QUANTIZED LLAVA MODEL
-# ========================================
 echo ""
 echo "[5/7] Pulling quantized LLaVA model (llava:7b)..."
 ollama pull llava:7b
@@ -90,9 +64,6 @@ else
     exit 1
 fi
 
-# ========================================
-# 6. VERIFY GPU ALLOCATION
-# ========================================
 echo ""
 echo "[6/7] Verifying GPU allocation..."
 sleep 3
@@ -105,26 +76,19 @@ else
     echo "Check /tmp/ollama.log for details"
 fi
 
-# ========================================
-# 7. UPDATE CONFIG.JSON
-# ========================================
 echo ""
 echo "[7/7] Updating config.json..."
 
-# Backup original config
 cp config.json config.json.backup
 
-# Update model name to quantized version
 python3 << 'PYEOF'
 import json
 
 with open('config.json', 'r') as f:
     config = json.load(f)
 
-# Update Ollama model
 config['ollama_config']['ollama_model'] = 'llava:7b'
 
-# Add merged prompt file
 if 'prompt_files' not in config['ollama_config']:
     config['ollama_config']['prompt_files'] = {}
 
@@ -136,19 +100,15 @@ with open('config.json', 'w') as f:
 print("✓ config.json updated")
 PYEOF
 
-# ========================================
-# COMPLETION
-# ========================================
 echo ""
-echo "=========================================="
-echo "✓ GPU Setup Complete!"
-echo "=========================================="
+echo "*** GPU Setup Complete! ***"
 echo ""
 echo "Configuration Summary:"
 echo "  - Ollama server: Running on GPU 1 (PID: $OLLAMA_PID)"
 echo "  - Model: llava:7b (quantized)"
 echo "  - GPU Layers: 35"
 echo "  - YOLO will use: GPU 0"
+echo "  - Processing: Sequential (no parallel threads)"
 echo ""
 echo "Next Steps:"
 echo "  1. Copy extended_visibility_all.txt to data/prompts/"
@@ -160,4 +120,3 @@ echo "  - Ollama: /tmp/ollama.log"
 echo "  - Pipeline: outputs/pipeline.log"
 echo ""
 echo "To stop Ollama: pkill ollama"
-echo "=========================================="

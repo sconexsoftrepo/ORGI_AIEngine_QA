@@ -15,9 +15,9 @@ Value	Meaning
 "N"	A similar object is visible but NOT Coca-Cola branded
 "N/A"	The object is not visible, unclear, or cannot be confirmed
 
-❗ If uncertain, always return "N/A" — never guess.
-❗ You MUST output all 12 keys even if all are "N" or "N/A".
-❗ No text, reasoning, or formatting outside the JSON object.
+- If uncertain, always return "N/A" — never guess.
+- You MUST output all 12 keys even if all are "N" or "N/A".
+- No text, reasoning, or formatting outside the JSON object.
 
 Category Boundary Rules 
 
