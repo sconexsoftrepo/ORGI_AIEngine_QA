@@ -7,8 +7,8 @@ from ultralytics import YOLO
 model = YOLO("data/capmodelnew.pt")
 
 results = model(
-    "image_4.png",
-    conf=0.2
+    "undefined.png",
+    conf=0.01
 )
 
 for r in results:

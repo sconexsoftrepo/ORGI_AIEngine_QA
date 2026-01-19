@@ -141,11 +141,9 @@ def analyze_image(image_path, ollama_host, prompts, class_ids, model_name):
 
 def process_single_image(image_info, ollama_host, prompts, class_ids, model_name, 
                          activation_yolo_model, activation_conf_threshold, 
-                         activation_mappings, s3_handler, s3_annotated_folder, cur):
-    """
-    Process a single image.
-    Returns list of result dictionaries.
-    """
+                         activation_mappings, s3_handler, s3_annotated_folder, 
+                         classtext_cache):
+    
     fileseqid, storename, filename, local_path, s3_key, storeid, subcategory_id = image_info
     
     # Skip visicooler-specific subcategories
@@ -205,7 +203,7 @@ def process_single_image(image_info, ollama_host, prompts, class_ids, model_name
                 "modelname": model_name,
                 "imagefilename": filename,
                 "classid": int(cid),
-                "classtext": get_classtext(cur, int(cid)),
+                "classtext": classtext_cache.get(int(cid), 'Unknown'),  
                 "value": val,
                 "inference": inference,
                 "modelrun": now,
@@ -238,6 +236,7 @@ def run_ollama_analysis(
     db_config,
     cyclecountid
 ):
+    
     config = load_config(config_path)
     ollama_cfg = config["ollama_config"]
     model_name = ollama_cfg["ollama_model"]
@@ -251,19 +250,28 @@ def run_ollama_analysis(
 
     class_ids = load_json_classes(class_ids_path)
 
+    #  STEP 1: Open DB briefly to get stagingid and cache classtext
     import pg8000.dbapi as pg
     conn = pg.connect(
         host=db_config['host'],
         port=db_config['port'],
         database=db_config['database'],
         user=db_config['user'],
-        password=db_config['password'],
-        timeout=36000
+        password=db_config['password']
     )
     cur = conn.cursor()
-    logger.info("Database connection established with extended timeout.")
+    logger.info("Database connection established")
     
     stagingid = get_max_stagingid(cur) + 1
+    
+    #  Pre-fetch all classtext values (1018-1053)
+    classtext_cache = {}
+    for cid in range(1018, 1054):
+        classtext_cache[cid] = get_classtext(cur, cid)
+    
+    #  CLOSE DB before inference
+    close_db_connection(conn, cur)
+    logger.info("Database closed before inference")
 
     # Activation mappings (O(1) lookups)
     activation_mappings = {
@@ -272,7 +280,6 @@ def run_ollama_analysis(
         "menu_board": "1023"
     }
 
-    
     all_results = []
 
     # Filter images for processing
@@ -284,6 +291,7 @@ def run_ollama_analysis(
     total_images = len(images_to_process)
     logger.info(f"Processing {total_images} images sequentially")
 
+    # STEP 2: Run inference WITHOUT database
     for img_info in images_to_process:
         results = process_single_image(
             img_info,
@@ -296,7 +304,7 @@ def run_ollama_analysis(
             activation_mappings,
             s3_handler,
             s3_annotated_folder,
-            cur
+            classtext_cache  #  Pass cache instead of cursor
         )
         all_results.extend(results)
 
@@ -320,9 +328,37 @@ def run_ollama_analysis(
             writer.writeheader()
             writer.writerows(all_results)
 
+    #  STEP 3: Reopen DB ONLY for insert
+    logger.info("Reopening database for insert...")
+    conn = pg.connect(
+        host=db_config['host'],
+        port=db_config['port'],
+        database=db_config['database'],
+        user=db_config['user'],
+        password=db_config['password']
+    )
+    cur = conn.cursor()
+    
+    #  Verify connection is alive
+    try:
+        cur.execute("SELECT 1")
+    except Exception as e:
+        logger.warning(f"Connection issue, reconnecting: {e}")
+        close_db_connection(conn, cur)
+        conn = pg.connect(
+            host=db_config['host'],
+            port=db_config['port'],
+            database=db_config['database'],
+            user=db_config['user'],
+            password=db_config['password']
+        )
+        cur = conn.cursor()
+
     # Insert into database
     insert_ollama_results(cur, stagingid, all_results, model_name, s3_annotated_folder, image_paths)
     conn.commit()
     close_db_connection(conn, cur)
+    
+    logger.info(" Database insert completed")
 
     return all_results, output_csv
