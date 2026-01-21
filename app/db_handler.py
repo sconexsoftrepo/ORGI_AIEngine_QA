@@ -5,14 +5,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 def initialize_db_connection(db_config):
-    """Initialize database connection."""
+    # Initialize database connection with 30 second timeout
     try:
         conn = pg.connect(
             host=db_config['host'],
             port=db_config['port'],
             database=db_config['database'],
             user=db_config['user'],
-            password=db_config['password']
+            password=db_config['password'],
+            timeout=60
         )
         cur = conn.cursor()
         logger.info("Database connection established.")
@@ -21,14 +22,22 @@ def initialize_db_connection(db_config):
         logger.error(f"Failed to initialize database connection: {e}")
         raise
 
+
 def close_db_connection(conn, cur):
-    """Close database connection."""
+    # Close database connection safely
     try:
-        cur.close()
-        conn.close()
+        if cur is not None:
+            cur.close()
+        if conn is not None:
+            conn.close()
         logger.info("Database connection closed.")
     except Exception as e:
-        logger.error(f"Failed to close database connection: {e}")
+        # Check if it's just an already closed connection
+        error_msg = str(e).lower()
+        if 'closed' in error_msg or 'invalid' in error_msg:
+            logger.debug(f"Connection was already closed: {e}")
+        else:
+            logger.error(f"Failed to close database connection: {e}")
 
 def get_max_stagingid(cur):
     """Get the maximum stagingid from orgi.visibilityitemsstaging."""
