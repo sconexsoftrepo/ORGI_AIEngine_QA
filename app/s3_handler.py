@@ -62,13 +62,17 @@ class S3Handler:
 
             # Count unique stores
             unique_stores = len(set(row[3] for row in image_data if row[3]))
-            logger.info(f"Fetched {len(image_data)} images from {unique_stores} stores for {pod_id}")
+            total_images = len(image_data)
+            
+            logger.info(f"Found {total_images} images from {unique_stores} stores for {pod_id}")
 
-            if len(image_data) == 0:
+            if total_images == 0:
                 logger.warning(f"No images found for {pod_id}. Check if batch assignment completed.")
+                return [], []
 
             image_paths = []
             failed_files = []
+            downloaded_count = 0
 
             for filesequenceid, storename, filename, storeid, subcategory_id, upload_time in image_data:
                 try:
@@ -96,7 +100,12 @@ class S3Handler:
                                 s3_key,
                                 local_path
                             )
-                            logger.debug(f"Downloaded {s3_key} → {local_path}")
+                            downloaded_count += 1
+                            
+                            # Show progress every 10 images or for the last image
+                            if downloaded_count % 10 == 0 or downloaded_count == total_images:
+                                logger.info(f"Downloaded {downloaded_count}/{total_images} images")
+                            
                             image_paths.append(
                                 (
                                     filesequenceid,
@@ -121,9 +130,7 @@ class S3Handler:
                                 break
 
                     if not downloaded:
-                        logger.warning(
-                            f"File not found in S3: {filename}"
-                        )
+                        logger.warning(f"File not found in S3: {filename}")
                         failed_files.append(
                             (filesequenceid, storename, filename)
                         )
@@ -134,6 +141,8 @@ class S3Handler:
                         (filesequenceid, storename, filename)
                     )
 
+            logger.info(f"Download complete: {downloaded_count}/{total_images} successful")
+            
             if failed_files:
                 logger.warning(f"Failed to download {len(failed_files)} files")
 
@@ -157,8 +166,6 @@ class S3Handler:
                 s3_key,
                 ExtraArgs=extra_args
             )
-
-            logger.debug(f"Uploaded {file_path} to S3: {s3_key}")
 
         except NoCredentialsError:
             logger.error("Invalid AWS credentials")
