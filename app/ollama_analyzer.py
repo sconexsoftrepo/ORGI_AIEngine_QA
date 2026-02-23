@@ -13,8 +13,7 @@
 #     initialize_db_connection,
 #     close_db_connection,
 #     get_classtext,
-#     insert_ollama_results,
-#     get_max_stagingid
+#     insert_ollama_results
 # )
 
 # logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -25,8 +24,7 @@
 
 # def get_ollama_client(ollama_host):
 #     """
-#     Singleton Ollama client to avoid repeated connection overhead.
-#     Reduces CPU spikes from HTTP session creation.
+#     Reuse same Ollama client connection to reduce overhead.
 #     """
 #     global _OLLAMA_CLIENT
 #     if _OLLAMA_CLIENT is None:
@@ -62,7 +60,7 @@
 
 # def ollama_generate(ollama_host, model_name, prompt, image_path):
 #     """
-#     OPTIMIZED: Reuses persistent client connection.
+#     Call Ollama with persistent client connection.
 #     """
 #     client = get_ollama_client(ollama_host)
 #     try:
@@ -103,8 +101,8 @@
 
 # def run_activation_yolo(image_path, model_path, conf_threshold=0.3):
 #     """
-#     Run activation YOLO model with configurable confidence threshold.
-#     Returns set of detected class names (lowercased, underscored).
+#     Run activation YOLO to quickly detect common items.
+#     Returns set of detected class names.
 #     """
 #     model = get_activation_yolo(model_path)
 #     results = model(image_path, conf=conf_threshold, verbose=False)
@@ -124,18 +122,18 @@
 #     merged = {}
 
 #     if "extended_visibility_all" in prompts and prompts["extended_visibility_all"]:
-#         # OPTIMIZED PATH: Single Ollama call for all visibility items
+#         # Single Ollama call for all visibility items
 #         result = ollama_generate(ollama_host, model_name, prompts["extended_visibility_all"], image_path)
 #         merged.update(result)
 #         logger.debug(f"Used merged prompt for {os.path.basename(image_path)}")
 #     else:
-#         # FALLBACK: Separate prompts (slower)
+#         # Multiple prompts if needed
 #         for p in ["extended_visibility_group1", "extended_visibility_group2"]:
 #             if p in prompts and prompts[p]:
 #                 result = ollama_generate(ollama_host, model_name, prompts[p], image_path)
 #                 merged.update(result)
 
-#     # Return only the class IDs that are in our scope (1018-1046)
+#     # Return only class IDs in scope (1018-1046)
 #     return {k: v for k, v in merged.items() if k in class_ids}
 
 
@@ -158,7 +156,7 @@
 #     try:
 #         logger.info(f"Processing: {filename}")
         
-#         # Step 1: Activation YOLO (fast pre-filter)
+#         # Fast pre-filter with activation YOLO
 #         activation_detected = set()
 #         if activation_yolo_model:
 #             activation_detected = run_activation_yolo(
@@ -167,7 +165,7 @@
 #                 conf_threshold=activation_conf_threshold
 #             )
         
-#         # Step 2: Check if activation can handle this
+#         # Check if activation YOLO can handle this image
 #         skip_ollama = False
 #         ollama_output = {}
         
@@ -178,7 +176,7 @@
 #                 skip_ollama = True
 #                 logger.info(f"   → Mapped {detected_name} to class {cid}")
         
-#         # Step 3: Conditionally run Ollama
+#         # Run Ollama only if needed
 #         if skip_ollama:
 #             logger.info(f"  FAST PATH: Skipped Ollama (saved ~8s)")
 #         else:
@@ -234,8 +232,13 @@
 #     s3_handler,
 #     s3_annotated_folder,
 #     db_config,
-#     cyclecountid
+#     cyclecountid,
+#     stagingid
 # ):
+#     """
+#     Run Ollama analysis on images and insert results into database.
+#     stagingid is now passed in from main.py (shared across all batches).
+#     """
     
 #     config = load_config(config_path)
 #     ollama_cfg = config["ollama_config"]
@@ -250,7 +253,7 @@
 
 #     class_ids = load_json_classes(class_ids_path)
 
-#     #  STEP 1: Open DB briefly to get stagingid and cache classtext
+#     # Open database briefly to cache classtext values
 #     import pg8000.dbapi as pg
 #     conn = pg.connect(
 #         host=db_config['host'],
@@ -262,18 +265,16 @@
 #     cur = conn.cursor()
 #     logger.info("Database connection established")
     
-#     stagingid = get_max_stagingid(cur) + 1
-    
-#     #  Pre-fetch all classtext values (1018-1053)
+#     # Pre-fetch all classtext values (1018-1053)
 #     classtext_cache = {}
 #     for cid in range(1018, 1054):
 #         classtext_cache[cid] = get_classtext(cur, cid)
     
-#     #  CLOSE DB before inference
+#     # Close database before inference
 #     close_db_connection(conn, cur)
 #     logger.info("Database closed before inference")
 
-#     # Activation mappings (O(1) lookups)
+#     # Map activation YOLO detections to class IDs
 #     activation_mappings = {
 #         "poster": "1019",
 #         "dps": "1053",
@@ -291,7 +292,7 @@
 #     total_images = len(images_to_process)
 #     logger.info(f"Processing {total_images} images sequentially")
 
-#     # STEP 2: Run inference WITHOUT database
+#     # Run inference without database connection
 #     for img_info in images_to_process:
 #         results = process_single_image(
 #             img_info,
@@ -304,7 +305,7 @@
 #             activation_mappings,
 #             s3_handler,
 #             s3_annotated_folder,
-#             classtext_cache  #  Pass cache instead of cursor
+#             classtext_cache
 #         )
 #         all_results.extend(results)
 
@@ -313,6 +314,7 @@
 #     logger.info("OLLAMA ANALYSIS STATISTICS:")
 #     logger.info(f"Total images processed: {total_images}")
 #     logger.info(f"Total results generated: {len(all_results)}")
+#     logger.info(f"Using stagingid: {stagingid} (shared across all batches)")
 #     logger.info(f"Scope: Extended visibility items only (class IDs 1018-1046)")
 #     logger.info("=" * 60)
 
@@ -328,7 +330,7 @@
 #             writer.writeheader()
 #             writer.writerows(all_results)
 
-#     #  STEP 3: Reopen DB ONLY for insert
+#     # Reopen database for insert
 #     logger.info("Reopening database for insert...")
 #     conn = pg.connect(
 #         host=db_config['host'],
@@ -339,7 +341,7 @@
 #     )
 #     cur = conn.cursor()
     
-#     #  Verify connection is alive
+#     # Verify connection is alive
 #     try:
 #         cur.execute("SELECT 1")
 #     except Exception as e:
@@ -354,7 +356,7 @@
 #         )
 #         cur = conn.cursor()
 
-#     # Insert into database
+#     # Insert into database using the shared stagingid
 #     insert_ollama_results(cur, stagingid, all_results, model_name, s3_annotated_folder, image_paths)
 #     conn.commit()
 #     close_db_connection(conn, cur)
@@ -362,6 +364,9 @@
 #     logger.info(" Database insert completed")
 
 #     return all_results, output_csv
+
+
+
 
 import os
 import json
@@ -378,8 +383,7 @@ from app.db_handler import (
     initialize_db_connection,
     close_db_connection,
     get_classtext,
-    insert_ollama_results,
-    get_max_stagingid
+    insert_ollama_results
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -390,8 +394,7 @@ _OLLAMA_CLIENT = None
 
 def get_ollama_client(ollama_host):
     """
-    Singleton Ollama client to avoid repeated connection overhead.
-    Reduces CPU spikes from HTTP session creation.
+    Reuse same Ollama client connection to reduce overhead.
     """
     global _OLLAMA_CLIENT
     if _OLLAMA_CLIENT is None:
@@ -427,7 +430,7 @@ def extract_json(text):
 
 def ollama_generate(ollama_host, model_name, prompt, image_path):
     """
-    OPTIMIZED: Reuses persistent client connection.
+    Call Ollama with persistent client connection.
     """
     client = get_ollama_client(ollama_host)
     try:
@@ -468,8 +471,8 @@ def get_activation_yolo(model_path):
 
 def run_activation_yolo(image_path, model_path, conf_threshold=0.3):
     """
-    Run activation YOLO model with configurable confidence threshold.
-    Returns set of detected class names (lowercased, underscored).
+    Run activation YOLO to quickly detect common items.
+    Returns set of detected class names.
     """
     model = get_activation_yolo(model_path)
     results = model(image_path, conf=conf_threshold, verbose=False)
@@ -479,6 +482,7 @@ def run_activation_yolo(image_path, model_path, conf_threshold=0.3):
         for cls in r.boxes.cls:
             class_name = model.names[int(cls)].lower().replace(" ", "_")
             detected.add(class_name)
+            logger.info(f"Activation YOLO detected: {class_name} in {os.path.basename(image_path)}")
     
     return detected
 
@@ -488,17 +492,18 @@ def analyze_image(image_path, ollama_host, prompts, class_ids, model_name):
     merged = {}
 
     if "extended_visibility_all" in prompts and prompts["extended_visibility_all"]:
-        # OPTIMIZED PATH: Single Ollama call for all visibility items
+        # Single Ollama call for all visibility items
         result = ollama_generate(ollama_host, model_name, prompts["extended_visibility_all"], image_path)
         merged.update(result)
+        logger.debug(f"Used merged prompt for {os.path.basename(image_path)}")
     else:
-        # FALLBACK: Separate prompts (slower)
+        # Multiple prompts if needed
         for p in ["extended_visibility_group1", "extended_visibility_group2"]:
             if p in prompts and prompts[p]:
                 result = ollama_generate(ollama_host, model_name, prompts[p], image_path)
                 merged.update(result)
 
-    # Return only the class IDs that are in our scope (1018-1046)
+    # Return only class IDs in scope (1018-1046)
     return {k: v for k, v in merged.items() if k in class_ids}
 
 
@@ -519,7 +524,9 @@ def process_single_image(image_info, ollama_host, prompts, class_ids, model_name
     results = []
     
     try:
-        # Step 1: Activation YOLO (fast pre-filter)
+        logger.info(f"Processing: {filename}")
+        
+        # Fast pre-filter with activation YOLO
         activation_detected = set()
         if activation_yolo_model:
             activation_detected = run_activation_yolo(
@@ -528,21 +535,36 @@ def process_single_image(image_info, ollama_host, prompts, class_ids, model_name
                 conf_threshold=activation_conf_threshold
             )
         
-        # Step 2: Check if activation can handle this
-        skip_ollama = False
+        # Check activation YOLO detections against mappings
+        # Only skip Ollama if we have at least one confidently-mapped detection
+        # AND no unmapped/unknown detections that Ollama should evaluate
         ollama_output = {}
-        
+        has_mapped = False
+        has_unmapped = False
+
         for detected_name in activation_detected:
             if detected_name in activation_mappings:
-                cid = activation_mappings[detected_name]
+                cid = str(activation_mappings[detected_name])
                 ollama_output[cid] = "Y"
-                skip_ollama = True
-        
-        # Step 3: Conditionally run Ollama
-        if not skip_ollama:
+                has_mapped = True
+                logger.info(f"   → Activation mapped '{detected_name}' → class {cid}")
+            else:
+                # 'others' or any unknown class — let Ollama decide
+                has_unmapped = True
+                logger.info(f"   → Unmapped detection '{detected_name}' → will run Ollama")
+
+        skip_ollama = has_mapped and not has_unmapped and len(activation_detected) > 0
+
+        # Run Ollama only if needed
+        if skip_ollama:
+            logger.info(f"  FAST PATH: Skipped Ollama — all detections mapped by activation model")
+        else:
+            if not activation_detected:
+                logger.info(f"  No activation detections — running Ollama")
             ollama_output = analyze_image(
                 local_path, ollama_host, prompts, class_ids, model_name
             )
+            logger.info(f"    Ollama completed")
         
         # Generate results
         now = datetime.now()
@@ -591,8 +613,13 @@ def run_ollama_analysis(
     s3_handler,
     s3_annotated_folder,
     db_config,
-    cyclecountid
+    cyclecountid,
+    stagingid
 ):
+    """
+    Run Ollama analysis on images and insert results into database.
+    stagingid is now passed in from main.py (shared across all batches).
+    """
     
     config = load_config(config_path)
     ollama_cfg = config["ollama_config"]
@@ -607,7 +634,7 @@ def run_ollama_analysis(
 
     class_ids = load_json_classes(class_ids_path)
 
-    # STEP 1: Open DB briefly to get stagingid and cache classtext
+    # Open database briefly to cache classtext values
     import pg8000.dbapi as pg
     conn = pg.connect(
         host=db_config['host'],
@@ -619,45 +646,45 @@ def run_ollama_analysis(
     cur = conn.cursor()
     logger.info("Database connection established")
     
-    stagingid = get_max_stagingid(cur) + 1
-    
     # Pre-fetch all classtext values (1018-1053)
     classtext_cache = {}
     for cid in range(1018, 1054):
         classtext_cache[cid] = get_classtext(cur, cid)
     
-    # CLOSE DB before inference
+    # Close database before inference
     close_db_connection(conn, cur)
     logger.info("Database closed before inference")
 
-    # Activation mappings (O(1) lookups)
+    # Map activation YOLO class names → visibility class IDs
+    
     activation_mappings = {
-        "poster": "1019",
-        "dps": "1053",
-        "menu_board": "1023"
+        "bar_signage":      1024,
+        "signage":          1024,   # same as bar signage
+        "combo_board":      1022,
+        "dps":              1053,
+        "menu_board":       1023,
+        "pillar_branding":  1040,
+        "poster":           1019,
+        "rgb_crate_stacking": 1056,
+        "shelf_display":    1064,
+        "table_sticker":    1027,
+        "streamer":         1020,
+        # 'others' intentionally omitted 
     }
 
     all_results = []
 
-    # Filter images for processing (exclude visicooler subcategories)
+    # Filter images for processing
     images_to_process = [
         img for img in image_paths 
         if img[6] not in [601, 602, 603, 604, 605] and os.path.exists(img[3])
     ]
     
     total_images = len(images_to_process)
-    logger.info(f"Starting Ollama analysis on {total_images} images (excluding visicooler subcategories)")
+    logger.info(f"Processing {total_images} images sequentially")
 
-    # STEP 2: Run inference WITHOUT database
-    processed_count = 0
+    # Run inference without database connection
     for img_info in images_to_process:
-        processed_count += 1
-        
-        # Show progress every 5 images or for the last image
-        if processed_count % 5 == 0 or processed_count == total_images:
-            remaining = total_images - processed_count
-            logger.info(f"Ollama progress: {processed_count}/{total_images} images processed, {remaining} remaining")
-        
         results = process_single_image(
             img_info,
             ollama_host,
@@ -674,9 +701,13 @@ def run_ollama_analysis(
         all_results.extend(results)
 
     # Log statistics
-    logger.info("Ollama analysis complete")
+    logger.info("=" * 60)
+    logger.info("OLLAMA ANALYSIS STATISTICS:")
     logger.info(f"Total images processed: {total_images}")
     logger.info(f"Total results generated: {len(all_results)}")
+    logger.info(f"Using stagingid: {stagingid} (shared across all batches)")
+    logger.info(f"Scope: Extended visibility items only (class IDs 1018-1046)")
+    logger.info("=" * 60)
 
     # Assign rowids
     for idx, result in enumerate(all_results, start=1):
@@ -690,8 +721,8 @@ def run_ollama_analysis(
             writer.writeheader()
             writer.writerows(all_results)
 
-    # STEP 3: Reopen DB ONLY for insert
-    logger.info("Reopening database for insert")
+    # Reopen database for insert
+    logger.info("Reopening database for insert...")
     conn = pg.connect(
         host=db_config['host'],
         port=db_config['port'],
@@ -716,11 +747,11 @@ def run_ollama_analysis(
         )
         cur = conn.cursor()
 
-    # Insert into database
+    # Insert into database using the shared stagingid
     insert_ollama_results(cur, stagingid, all_results, model_name, s3_annotated_folder, image_paths)
     conn.commit()
     close_db_connection(conn, cur)
     
-    logger.info("Database insert completed")
+    logger.info(" Database insert completed")
 
     return all_results, output_csv

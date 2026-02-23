@@ -2,7 +2,7 @@
   "db_config": {
     "host": "100.42.188.112",
     "port": 5432,
-    "database": "ImageInsight",
+    "database": "ImageInsghtDevelopment",
     "user": "postgres",
     "password": "sconex"
   },
@@ -16,7 +16,7 @@
   "ollama_config": {
     "image_folder_s3": "STORE_IMAGES/",
     "output_s3_folder": "ModelResults/",
-    "activation_yolo_model": "data/activation_best.pt",
+    "activation_yolo_model": "data/activation_new.pt",
     "activation_conf_threshold": 0.3,
     "output_csv": "outputs/ollama_analysis_results.csv",
     "class_ids_path": "data/class_ids.json",
@@ -32,11 +32,11 @@
   },
   "visicooler_config": {
     "caps_model_path": "data/capmodelnew.pt",
-    "sku_model_path": "data/yolov8l roboflow dipto.pt",
+    "sku_model_path": "data/weights.pt",
     "model_path": "data/capmodelnew.pt",
     "output_folder_path": "outputs/segmented_images/",
     "cap_conf_threshold": 0.1,
-    "sku_conf_threshold": 0.35,
+    "sku_conf_threshold": 0.12,
     "conf_threshold": 0.12
 }
 }
