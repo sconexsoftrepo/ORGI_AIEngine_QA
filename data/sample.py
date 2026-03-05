@@ -56,7 +56,7 @@ def encode_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
-image_b64 = encode_image("3.jpeg")
+image_b64 = encode_image("2.jpeg")
 
 payload = {
     "model": "llava:7b",

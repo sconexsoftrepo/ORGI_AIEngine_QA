@@ -2,7 +2,7 @@
   "db_config": {
     "host": "100.42.188.112",
     "port": 5432,
-    "database": "ImageInsghtDevelopment",
+    "database": "ImageInsight",
     "user": "postgres",
     "password": "sconex"
   },
