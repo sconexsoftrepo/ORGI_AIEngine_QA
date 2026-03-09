@@ -113,13 +113,27 @@ def insert_sovi_cap_predictions(cur, cap_records):
      x1, x2, y1, y2, prod_class_id, shelfnumber,
      brand_name, s3path_annotated_file)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT DO NOTHING
     """
     try:
         cur.executemany(insert_query, cap_records)
-        logger.info(f"Inserted {len(cap_records)} SOVI cap predictions")
+        logger.info(f"Inserted SOVI cap predictions (up to {len(cap_records)} rows, duplicates skipped)")
     except Exception as e:
         logger.error(f"Failed to insert SOVI cap predictions: {type(e).__name__}: {e}")
-        raise
+        logger.warning("Falling back to row-by-row insert to isolate failures...")
+        inserted = 0
+        skipped = 0
+        for record in cap_records:
+            try:
+                cur.execute(insert_query, record)
+                inserted += 1
+            except Exception as row_err:
+                err_str = str(row_err)
+                if '23505' in err_str or 'duplicate key' in err_str.lower():
+                    skipped += 1
+                else:
+                    logger.error(f"Unexpected error inserting cap record {record}: {row_err}")
+        logger.info(f"Row-by-row insert complete: {inserted} inserted, {skipped} duplicates skipped")
 
 
 @retry_on_network_error(max_retries=3, delay=5)
@@ -136,13 +150,27 @@ def insert_sovi_sku_predictions(cur, sku_records):
     (store_id, image_file_name, iteration_id, prod_class_id,
      x1, x2, y1, y2, shelfnumber, brand_name, s3path_annotated_file)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT ON CONSTRAINT pk_sku_prediction_temp_sovi DO NOTHING
     """
     try:
         cur.executemany(insert_query, sku_records)
-        logger.info(f"Inserted {len(sku_records)} SOVI SKU predictions")
+        logger.info(f"Inserted SOVI SKU predictions (up to {len(sku_records)} rows, duplicates skipped)")
     except Exception as e:
         logger.error(f"Failed to insert SOVI SKU predictions: {type(e).__name__}: {e}")
-        raise
+        logger.warning("Falling back to row-by-row insert to isolate failures...")
+        inserted = 0
+        skipped = 0
+        for record in sku_records:
+            try:
+                cur.execute(insert_query, record)
+                inserted += 1
+            except Exception as row_err:
+                err_str = str(row_err)
+                if '23505' in err_str or 'duplicate key' in err_str.lower():
+                    skipped += 1
+                else:
+                    logger.error(f"Unexpected error inserting SKU record {record}: {row_err}")
+        logger.info(f"Row-by-row insert complete: {inserted} inserted, {skipped} duplicates skipped")
 
 
 # ---------------------------------------------------------------------------
