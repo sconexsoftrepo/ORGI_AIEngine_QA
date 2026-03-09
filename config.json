@@ -2,7 +2,7 @@
   "db_config": {
     "host": "100.42.188.112",
     "port": 5432,
-    "database": "ImageInsight",
+    "database": "ImageInsghtDevelopment",
     "user": "postgres",
     "password": "sconex"
   },
@@ -38,5 +38,9 @@
     "cap_conf_threshold": 0.1,
     "sku_conf_threshold": 0.12,
     "conf_threshold": 0.12
+},
+"sovi_config": {
+    "model_path": "data/yolov8l roboflow dipto.pt",
+    "conf_threshold": 0.35
 }
 }
