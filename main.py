@@ -898,6 +898,7 @@ STALE_TIMEOUT_MINUTES = 60
 
 def get_unprocessed_store_count(conn):
     """Count distinct unprocessed stores."""
+    
     try:
         cur = conn.cursor()
         cur.execute("""

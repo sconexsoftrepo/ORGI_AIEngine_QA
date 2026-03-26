@@ -375,7 +375,6 @@ import logging
 import re
 import requests
 from datetime import datetime
-from ollama import Client
 from ultralytics import YOLO
 
 from app.config_loader import load_config, load_json_classes
@@ -542,29 +541,14 @@ def process_single_image(image_info, ollama_host, prompts, class_ids, model_name
         has_mapped = False
         has_unmapped = False
 
+        ollama_output = {}
+
         for detected_name in activation_detected:
             if detected_name in activation_mappings:
                 cid = str(activation_mappings[detected_name])
                 ollama_output[cid] = "Y"
-                has_mapped = True
-                logger.info(f"   → Activation mapped '{detected_name}' → class {cid}")
-            else:
-                # 'others' or any unknown class — let Ollama decide
-                has_unmapped = True
-                logger.info(f"   → Unmapped detection '{detected_name}' → will run Ollama")
+                logger.info(f"Activation mapped '{detected_name}' → class {cid}")
 
-        skip_ollama = has_mapped and not has_unmapped and len(activation_detected) > 0
-
-        # Run Ollama only if needed
-        if skip_ollama:
-            logger.info(f"  FAST PATH: Skipped Ollama — all detections mapped by activation model")
-        else:
-            if not activation_detected:
-                logger.info(f"  No activation detections — running Ollama")
-            ollama_output = analyze_image(
-                local_path, ollama_host, prompts, class_ids, model_name
-            )
-            logger.info(f"    Ollama completed")
         
         # Generate results
         now = datetime.now()
@@ -627,10 +611,6 @@ def run_ollama_analysis(
     prompts = ollama_cfg["prompts"]
     activation_yolo_model = ollama_cfg.get("activation_yolo_model")
     activation_conf_threshold = ollama_cfg.get("activation_conf_threshold", 0.3)
-
-    if not check_ollama_server(ollama_host, model_name):
-        logger.error("Ollama not available")
-        return [], None
 
     class_ids = load_json_classes(class_ids_path)
 
