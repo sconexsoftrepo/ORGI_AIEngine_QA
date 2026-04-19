@@ -8,13 +8,13 @@
   },
   "s3_config": {
     "bucket_name": "imageinsightimagesbeverages",
-    "image_folder_s3": "STORE_IMAGES/",
+    "image_folder_s3": "april_store_images/",
     "access_key": "AKIA6D6JBNORLYOWHTZZ",
     "secret_key": "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",
     "region": "ap-south-1"
   },
   "ollama_config": {
-    "image_folder_s3": "STORE_IMAGES/",
+    "image_folder_s3": "april_store_images/",
     "output_s3_folder": "ModelResults/",
     "activation_yolo_model": "data/activation_best.pt",
     "activation_conf_threshold": 0.3,

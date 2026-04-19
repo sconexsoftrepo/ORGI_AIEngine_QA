@@ -1,2 +1,2 @@
 rowid,modelname,imagefilename,classid,classtext,value,inference,modelrun,processed_flag,storeid,storename,s3path_actual_file,s3path_annotated_file
-1,llava:7b,IMG-MM7ABG93-M6H1.jpg,1019,Other Elements branded by Coca-Cola - Poster,Y,1.0,2026-03-26 17:34:57.846631,N,8000000045,Best Buy Shopping Centre PL,STORE_IMAGES/IMG-MM7ABG93-M6H1.jpg,ModelResults/VisibleItem_245/IMG-MM7ABG93-M6H1.jpg
+1,llava:7b,IMG-MM7ABG93-M6H1.jpg,1019,Other Elements branded by Coca-Cola - Poster,Y,1.0,2026-03-26 17:34:57.846631,N,8000000045,Best Buy Shopping Centre PL,april_store_images/IMG-MM7ABG93-M6H1.jpg,ModelResults/VisibleItem_245/IMG-MM7ABG93-M6H1.jpg

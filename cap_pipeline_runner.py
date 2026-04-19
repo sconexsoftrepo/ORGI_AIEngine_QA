@@ -332,7 +332,7 @@ def _build_queries(iteration_id: int) -> list[dict]:
                     cpt.x1, cpt.y1, cpt.x2, cpt.y2,
                     NULL,
                     cpt.image_file_name,
-                    'STORE_IMAGES/' || cpt.image_file_name,
+                    'april_store_images/' || cpt.image_file_name,
                     cpt.s3path_annotated_file
                 FROM temp.cap_prediction_temp cpt
                 JOIN image_map im
