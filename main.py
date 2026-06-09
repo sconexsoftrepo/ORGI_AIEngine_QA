@@ -880,6 +880,7 @@ from app.db_handler import initialize_db_connection, close_db_connection
 from app.visicooler import run_visicooler_analysis, check_visibilitydetails_schema
 from app.sovi_model import run_sovi_analysis          # NEW
 from cap_pipeline_runner import run_cap_pipeline
+from sovi_pipeline_runner import run_sovi_pipeline
 
 
 logging.basicConfig(
@@ -1123,7 +1124,7 @@ def execute_models(pod_id, iterationid, stagingid):
 
             # ------------------------------------------------------------------
             # Step 4 — SOVI analysis
-            #   • processes categories 2/3/4 + category 6 subcat 605
+            #   • processes categories 1/2 
             #   • uses same cap model (capmodelnew.pt) as visicooler
             #   • uses new SKU model (dipto.pt) for SKU detection + annotation
             #   • writes to temp.sku_prediction_temp_sovi
@@ -1384,6 +1385,32 @@ def main():
                         f"CAP pipeline raised an unexpected exception: {e}"
                     )
                     logger.error(traceback.format_exc())
+
+                # ── SOVI Post-Processing Pipeline ─────────────────────────
+                logger.info("=" * 60)
+                logger.info("Starting SOVI prediction post-processing pipeline ...")
+                logger.info("=" * 60)
+                try:
+                    sovi_result = run_sovi_pipeline(
+                        db_config=db_config,
+                        iteration_id=iterationid,
+                    )
+                    if sovi_result.overall_status != "success":
+                        logger.error(
+                            "SOVI pipeline finished with errors — "
+                            "check the summary above for details."
+                        )
+                    else:
+                        logger.info(
+                            f"SOVI pipeline completed successfully "
+                            f"in {sovi_result.total_duration_ms:.0f} ms."
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"SOVI pipeline raised an unexpected exception: {e}"
+                    )
+                    logger.error(traceback.format_exc())
+                # ──────────────────────────────────────────────────────────
 
                 break
 

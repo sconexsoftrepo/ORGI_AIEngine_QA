@@ -15,11 +15,9 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # SOVI processes:
-#   category_id 2, 3, 4  → all subcategory_ids
-#   category_id 6        → subcategory_id 605 only  (same images as visicooler)
+#   category_id 1, 2 → all subcategory_ids
 # ---------------------------------------------------------------------------
-SOVI_CATEGORIES  = {2, 3, 4}
-SOVI_CAT6_SUBCAT = 605
+SOVI_CATEGORIES = {1, 2}
 
 
 # ---------------------------------------------------------------------------
@@ -192,8 +190,7 @@ def run_sovi_analysis(image_paths, config, s3_handler, conn, cur,
 
     Categories processed
     --------------------
-    category_id 2, 3, 4  all subcategory_ids
-    category_id 6         subcategory_id 605 only
+    category_id 1, 2  all subcategory_ids
 
     Iteration ID
     ------------
@@ -331,8 +328,7 @@ def run_sovi_analysis(image_paths, config, s3_handler, conn, cur,
             norm_subcat = normalize_subcat(sub_id_raw)
 
             # SOVI filter
-            is_sovi = (norm_cat in SOVI_CATEGORIES) or \
-                      (norm_cat == 6 and norm_subcat == SOVI_CAT6_SUBCAT)
+            is_sovi = norm_cat in SOVI_CATEGORIES
             if not is_sovi:
                 continue
 
@@ -349,7 +345,7 @@ def run_sovi_analysis(image_paths, config, s3_handler, conn, cur,
         logger.info(
             f"SOVI: {total_sovi_images} eligible images across "
             f"{len(store_images)} stores "
-            f"(categories 2/3/4 + category 6 subcat 605)"
+            f"(categories 1 and 2)"
         )
         logger.info(f"SOVI: Using provided iterationid: {iterationid}")
 
