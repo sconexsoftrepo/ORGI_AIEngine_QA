@@ -406,7 +406,9 @@ def _build_queries(iteration_id: int) -> list[dict]:
                  AND im.storeid                = cpt.store_id
                  AND im.image_file_name        = cpt.image_file_name
                  AND im.s3path_annotated_file  = cpt.s3path_annotated_file
-                WHERE cpt.iteration_id = {iid};
+                WHERE cpt.iteration_id = {iid}
+                ON CONFLICT (iterationid, iterationtranid, shelfnumber, productsequenceno)
+                DO NOTHING;
             """,
         },
     ]

@@ -2,7 +2,7 @@
   "db_config": {
     "host": "100.42.188.112",
     "port": 5432,
-    "database": "ImageInsight",
+    "database": "ImageInsghtDevelopment",
     "user": "postgres",
     "password": "sconex"
   },
@@ -24,6 +24,7 @@
     "prompt_file": "data/prompts/extended_group1.txt"
   },
   "ollama_config": {
+    "ollama_host": "http://localhost:11434",
     "image_folder_s3": "STORE_IMAGES/",
     "output_s3_folder": "ModelResults/",
     "activation_yolo_model": "data/activation_april.pt",

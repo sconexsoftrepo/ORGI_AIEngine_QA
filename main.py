@@ -994,8 +994,18 @@ def get_or_create_iterationid(conn):
     try:
         cur = conn.cursor()
 
-        # Get max iterationid from temp table
-        cur.execute("SELECT COALESCE(MAX(iteration_id), 0) FROM temp.cap_prediction_temp")
+        # Read from permanent output tables, NOT temp tables.
+        # Temp tables are truncated at the start of each run so MAX on them
+        # would always return NULL → iterationid would always be 1.
+        cur.execute("""
+            SELECT COALESCE(
+                GREATEST(
+                    (SELECT MAX(iterationid) FROM orgi.coolermetricsmaster),
+                    (SELECT MAX(iterationid) FROM orgi.coolermetricsmaster_sovi)
+                ),
+                0
+            )
+        """)
         max_iteration = cur.fetchone()[0]
         iterationid   = max_iteration + 1
 
@@ -1287,43 +1297,24 @@ def main():
     stagingid = (result[0] if result[0] is not None else 0) + 1
     logger.info(f"Using stagingid: {stagingid} for this entire run")
 
-    # Clear temp tables once before batch loop
+    # Clear ALL temp table data from previous runs before starting fresh.
+    # We do a full TRUNCATE (not a WHERE iteration_id = X delete) because:
+    #   - The DELETE was previously scoped to the NEW iterationid, which
+    #     doesn't exist yet, so it deleted 0 rows and left stale data.
+    #   - Stale data causes CAP/SOVI pipeline steps to process thousands of
+    #     historical rows and produces 0-row inserts in steps 7 & 8 because
+    #     the final tables already have those records.
     logger.info("=" * 60)
-    logger.info(f"CLEARING TEMP TABLES (iteration {iterationid})")
+    logger.info(f"CLEARING ALL TEMP TABLES for fresh run (new iteration {iterationid})")
     logger.info("=" * 60)
     try:
-        cur.execute(
-            "DELETE FROM temp.sku_prediction_temp WHERE iteration_id = %s",
-            (iterationid,)
-        )
-        deleted_sku = cur.rowcount
-        cur.execute(
-            "DELETE FROM temp.cap_prediction_temp WHERE iteration_id = %s",
-            (iterationid,)
-        )
-        deleted_cap = cur.rowcount
-
-        # Also clear SOVI temp tables for this iteration
-        cur.execute(
-            "DELETE FROM temp.sku_prediction_temp_sovi WHERE iteration_id = %s",
-            (iterationid,)
-        )
-        deleted_sovi_sku = cur.rowcount
-        cur.execute(
-            "DELETE FROM temp.cap_prediction_temp_sovi WHERE iteration_id = %s",
-            (iterationid,)
-        )
-        deleted_sovi_cap = cur.rowcount
+        cur.execute("TRUNCATE TABLE temp.sku_prediction_temp")
+        cur.execute("TRUNCATE TABLE temp.cap_prediction_temp")
+        cur.execute("TRUNCATE TABLE temp.sku_prediction_temp_sovi")
+        cur.execute("TRUNCATE TABLE temp.cap_prediction_temp_sovi")
 
         conn.commit()
-        logger.info(
-            f"Cleared {deleted_sku} SKU records, {deleted_cap} cap records "
-            f"(visicooler)"
-        )
-        logger.info(
-            f"Cleared {deleted_sovi_sku} SOVI SKU records, "
-            f"{deleted_sovi_cap} SOVI cap records"
-        )
+        logger.info("All 4 temp tables truncated — starting clean")
         logger.info("Temp tables ready — batches will APPEND data")
     except Exception as e:
         logger.error(f"Failed to clear temp tables: {e}")

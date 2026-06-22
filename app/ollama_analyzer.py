@@ -833,8 +833,10 @@ def process_single_image(
 
         seen_classids = set()
         for cid, val in yolo_output.items():
-            if cid not in class_ids:
-                continue
+            # YOLO-mapped classes are always valid — ACTIVATION_MAPPINGS is the
+            # authoritative source. class_ids.json may be stale and miss newer
+            # class IDs (1054-1097), so we skip the filter for YOLO results.
+            # (class_ids filter still applies to GPT results below.)
             int_cid = int(cid)
             if int_cid in seen_classids:
                 logger.warning(f"  Duplicate classid {int_cid} for {filename} — skipping extra row")

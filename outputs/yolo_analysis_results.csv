@@ -1,0 +1,2 @@
+rowid,modelname,imagefilename,classid,classtext,value,inference,modelrun,processed_flag,storeid,storename,s3path_actual_file,s3path_annotated_file
+1,yolo_activation,IMG-MNVLB2OC-5DFX.jpg,1056,RGB Crate Stacking,Y,1.0,2026-06-22 12:21:22.853999,N,2120210222,SHRESTHA HOTEL,april_store_images/IMG-MNVLB2OC-5DFX.jpg,ModelResults/VisibleItem_298/IMG-MNVLB2OC-5DFX.jpg
