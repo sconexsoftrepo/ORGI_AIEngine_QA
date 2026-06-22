@@ -1180,7 +1180,6 @@ def execute_models(pod_id, iterationid, stagingid):
                     output_csv=ollama_config['output_csv'],
                     config_path='config.json',
                     class_ids_path=ollama_config['class_ids_path'],
-                    ollama_host=ollama_config['ollama_host'],
                     s3_handler=s3_handler,
                     s3_annotated_folder=(
                         f"{ollama_config['output_s3_folder']}"
