@@ -874,7 +874,7 @@ import tempfile
 import time
 from app.config_loader import load_config
 from app.s3_handler import S3Handler
-from app.ollama_analyzer import run_ollama_analysis
+from app.ollama_analyzer import run_yolo_analysis as run_ollama_analysis
 from app.file_uploader import FileUploader
 from app.db_handler import initialize_db_connection, close_db_connection
 from app.visicooler import run_visicooler_analysis, check_visibilitydetails_schema
