@@ -1029,7 +1029,7 @@ def execute_models(pod_id, iterationid, stagingid):
                                   writes → temp.sku_prediction_temp
                                            temp.cap_prediction_temp
                                   closes DB on exit
-    3. run_sovi_analysis        — categories 2/3/4 + category 6 subcat 605
+    3. run_sovi_analysis        — categories 1/2 
                                   writes → temp.sku_prediction_temp_sovi
                                            temp.cap_prediction_temp_sovi
                                   closes DB on exit
@@ -1359,6 +1359,7 @@ def main():
                     cap_result = run_cap_pipeline(
                         db_config=db_config,
                         iteration_id=iterationid,
+                        staging_id=stagingid,
                     )
                     if cap_result.overall_status != "success":
                         logger.error(
